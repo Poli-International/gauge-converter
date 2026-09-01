@@ -403,45 +403,13 @@ body {
   color: var(--brand-white);
 }
 
-/* Ko-fi Button */
-.gauge-converter__kofi-button {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  background: #FF5E5B;
-  color: white;
-  border: none;
-  border-radius: var(--border-radius);
-  padding: var(--spacing-sm) var(--spacing-md);
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-  font-size: 0.9rem;
-  text-decoration: none;
-  flex-shrink: 0;
-}
+/
 
-.gauge-converter__kofi-button:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  background: #FF4E4B;
-}
 
-.kofi-icon {
-  font-size: 1.1rem;
-  line-height: 1;
-}
 
-.kofi-text {
-  white-space: nowrap;
-}
 
-/* Hide kofi text on small screens */
-@media (max-width: 480px) {
-  .kofi-text {
-    display: none;
-  }
-}
+
+
 
 /* ============================================
    MAIN CONTENT
@@ -809,38 +777,13 @@ body {
   align-items: center;
 }
 
-.gauge-converter__kofi {
-  display: inline-block;
-  transition: transform var(--transition-speed) var(--transition-ease),
-              opacity var(--transition-speed) var(--transition-ease);
-  opacity: 0.95;
-}
 
-.gauge-converter__kofi:hover {
-  transform: translateY(-3px) scale(1.08);
-  opacity: 1;
-}
 
-.gauge-converter__kofi-img {
-  display: block;
-  height: 70px;
-  width: auto;
-  border: 0;
-  border-radius: var(--border-radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  transition: all var(--transition-speed) var(--transition-ease);
-}
 
-.gauge-converter__kofi:hover .gauge-converter__kofi-img {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-}
 
-/* Make Ko-fi button even bigger on desktop */
-@media (min-width: 768px) {
-  .gauge-converter__kofi-img {
-    height: 80px;
-  }
-}
+
+
+
 
 /* Email Capture Section */
 .gauge-converter__email-section {
@@ -1307,15 +1250,7 @@ body.light-mode .gauge-converter__modal-email {
   box-shadow: 0 4px 12px rgba(6, 147, 227, 0.4);
 }
 
-/* Ko-fi in Modal */
-.gauge-converter__modal-support {
-  margin: var(--spacing-xl) 0;
-  padding: var(--spacing-lg);
-  background: linear-gradient(135deg, rgba(6, 147, 227, 0.1) 0%, rgba(155, 81, 224, 0.1) 100%);
-  border: 2px solid var(--color-border);
-  border-radius: var(--border-radius);
-  text-align: center;
-}
+/
 
 .gauge-converter__modal-support-text {
   font-size: var(--font-size-large);
@@ -1324,26 +1259,13 @@ body.light-mode .gauge-converter__modal-email {
   margin-bottom: var(--spacing-md);
 }
 
-.gauge-converter__modal-kofi {
-  display: inline-block;
-  transition: transform var(--transition-speed) var(--transition-ease);
-}
 
-.gauge-converter__modal-kofi:hover {
-  transform: translateY(-3px) scale(1.05);
-}
 
-.gauge-converter__modal-kofi-img {
-  height: 50px;
-  width: auto;
-  border-radius: var(--border-radius-small);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: box-shadow var(--transition-speed) var(--transition-ease);
-}
 
-.gauge-converter__modal-kofi:hover .gauge-converter__modal-kofi-img {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-}
+
+
+
+
 
 .gauge-converter__modal-features ul {
   list-style: none;
