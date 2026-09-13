@@ -44,11 +44,35 @@ const MM_TO_GAUGE = Object.entries(GAUGE_TO_MM).reduce((acc, [gauge, mm]) => {
  * Constants for conversions and display
  */
 const MM_PER_INCH = 25.4;
-const PIXELS_PER_MM = 3.78; // Standard 96 DPI display (1 inch = 96px, 96/25.4 ≈ 3.78)
+const PIXELS_PER_MM = 3.78; // Fallback: standard 96 DPI (1 inch = 96px, 96/25.4 ≈ 3.78)
+const SVG_VIEWBOX_UNITS = 300; // viewBox="0 0 300 300"
 const SVG_CENTER_X = 150;
 const SVG_CENTER_Y = 150;
 const MAX_CIRCLE_RADIUS = 140; // Maximum radius in SVG viewBox
 const DEBOUNCE_DELAY = 300; // milliseconds
+
+// Remember the current diameter so the visual can be re-rendered on resize
+// (the SVG scales with its container, so the life-size mapping must follow).
+let currentDiameterMm = null;
+
+/**
+ * Measure the browser's actual CSS pixels-per-millimetre at runtime rather
+ * than assuming a 96 DPI display. Uses a hidden 100mm probe so the value
+ * tracks browser zoom and non-standard configurations.
+ * @returns {number} CSS pixels per millimetre
+ */
+function measurePixelsPerMM() {
+  try {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'width:100mm;height:0;position:absolute;left:-9999px;top:-9999px;visibility:hidden;padding:0;border:0;';
+    document.body.appendChild(probe);
+    const px = probe.getBoundingClientRect().width / 100;
+    document.body.removeChild(probe);
+    return px > 0 ? px : PIXELS_PER_MM;
+  } catch (e) {
+    return PIXELS_PER_MM;
+  }
+}
 
 // ============================================
 // CONVERSION FUNCTIONS
@@ -142,29 +166,59 @@ function updateCircleDisplay(mm) {
   const circle = document.getElementById('gauge-circle');
   if (!circle) return;
 
-  if (mm === null || mm === undefined || mm === '') {
-    // Reset circle to invisible
+  // Remember the value so a resize can re-render at the correct scale.
+  currentDiameterMm = (mm === null || mm === undefined || mm === '') ? null : parseFloat(mm);
+
+  if (currentDiameterMm === null || isNaN(currentDiameterMm) || currentDiameterMm <= 0) {
     circle.setAttribute('r', '0');
+    updateScaleLabel(null, false);
     return;
   }
 
-  const mmNum = parseFloat(mm);
-  if (isNaN(mmNum) || mmNum <= 0) {
-    circle.setAttribute('r', '0');
-    return;
+  const mmNum = currentDiameterMm;
+
+  // The SVG uses a fixed 300-unit viewBox but its rendered width follows the
+  // container (width:100%, max 300px), so 1 viewBox unit is NOT always 1 CSS px.
+  // To draw the circle at true life-size we map physical millimetres to CSS
+  // pixels (measured, not hardcoded) and then convert CSS px -> viewBox units
+  // using the SVG's actual on-screen width.
+  const svg = circle.ownerSVGElement || circle.closest('svg');
+  const renderedWidthPx = svg ? svg.getBoundingClientRect().width : SVG_VIEWBOX_UNITS;
+  const unitsPerCssPx = renderedWidthPx > 0 ? (SVG_VIEWBOX_UNITS / renderedWidthPx) : 1;
+  const pxPerMM = measurePixelsPerMM();
+
+  // Desired physical radius in CSS px, then in viewBox units.
+  const radiusCssPx = (mmNum / 2) * pxPerMM;
+  let radiusUnits = radiusCssPx * unitsPerCssPx;
+
+  // Cap at the viewBox boundary; when capped the circle is no longer life-size.
+  let toScale = false;
+  if (radiusUnits > MAX_CIRCLE_RADIUS) {
+    radiusUnits = MAX_CIRCLE_RADIUS;
+    toScale = true;
   }
 
-  // Calculate radius in pixels (diameter / 2 * pixels per mm)
-  // Scale to fit within SVG viewBox if necessary
-  let radiusPixels = (mmNum / 2) * PIXELS_PER_MM;
+  circle.setAttribute('r', radiusUnits.toFixed(2));
+  updateScaleLabel(mmNum, toScale);
+}
 
-  // Cap at maximum viewable radius
-  if (radiusPixels > MAX_CIRCLE_RADIUS) {
-    radiusPixels = MAX_CIRCLE_RADIUS;
+/**
+ * Keep the visual-reference caption honest about whether the circle is being
+ * shown at true physical size or scaled down to fit.
+ * @param {number|null} mm - Current diameter, or null when cleared
+ * @param {boolean} scaledToFit - True when the circle was capped to the viewBox
+ */
+function updateScaleLabel(mm, scaledToFit) {
+  const label = document.querySelector('.gauge-converter__instruction');
+  if (!label) return;
+
+  if (mm === null) {
+    label.textContent = 'Approximate life-size (calibrated to your screen)';
+  } else if (scaledToFit) {
+    label.textContent = 'Scaled to fit (larger than the preview area)';
+  } else {
+    label.textContent = 'Approximate life-size (calibrated to your screen)';
   }
-
-  // Animate the circle size change
-  circle.setAttribute('r', radiusPixels.toFixed(2));
 }
 
 /**
@@ -532,6 +586,16 @@ function initConverter() {
 
   // Attach email capture functionality
   initEmailCapture();
+
+  // Re-render the visual at the correct scale when the container resizes
+  // (SVG width changes, so the life-size mapping must be recomputed).
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (currentDiameterMm !== null) updateCircleDisplay(currentDiameterMm);
+    }, 150);
+  });
 
   // Initialize with empty state
   updateCircleDisplay(null);
