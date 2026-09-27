@@ -1085,7 +1085,16 @@
     }
   };
 
+  // Start in the language the visitor last chose in any Poli tool (shared key),
+  // then the browser's, then English. Without this the choice was saved but
+  // never read, so every visit opened in English.
   let currentLang = DEFAULT_LANG;
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const nav = (navigator.language || '').slice(0, 2).toLowerCase();
+    if (saved && DICTIONARY[saved]) currentLang = saved;
+    else if (DICTIONARY[nav]) currentLang = nav;
+  } catch (e) {}
 
   /**
    * Translates a given key with optional token replacements.
