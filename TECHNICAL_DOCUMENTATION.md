@@ -12,7 +12,7 @@
 8. [Browser Compatibility](#browser-compatibility)
 9. [Security](#security)
 10. [Version History](#version-history)
-11. [Support and Contact](#support-and-contact)
+11. [Support / Contact](#support--contact)
 
 ---
 
@@ -20,435 +20,261 @@
 
 ### Technology Stack
 
-The tool is a standalone, dependency-free static web application built with:
+The Professional Gauge Converter is a dependency-free static web application built with plain HTML, CSS, and vanilla JavaScript. There is no build step, no framework, and no runtime package manager.
 
-- **HTML5** - Semantic markup with ARIA labels for accessibility
-- **CSS3** - Custom properties (CSS variables), responsive grid layout, dark/light mode
-- **Vanilla JavaScript (ES6+)** - No frameworks, libraries, or external dependencies
+- **Markup:** HTML5 (`index.html`), with a `manifest.webmanifest` for installability metadata.
+- **Styling:** External stylesheets, `css/style.css` for the tool plus shared `tools/shared/print.css` (print media) and `tools/shared/a11y.css` (accessibility).
+- **Scripts:** `js/i18n.js` (pre-rendered synchronous translation dictionary), `js/feedback.js` (community feedback form handler), and the converter logic referenced as `converter.js` (renders the reference table body and drives conversions). A shared `/js/input-guards.js` is loaded in the head.
+- **Structured data:** A `schema.org` `WebApplication` JSON-LD block declaring `applicationCategory: UtilityApplication`, `operatingSystem: Any`, `offers.price: 0`, `isAccessibleForFree: true`, and `inLanguage` for en, fr, de, es, it, nl, pt.
 
 ### File Structure
 
+Based on the source file headers:
+
 ```
 gauge-converter/
-├── index.html              # Main tool page with tabs (Tool, Documentation, Embed)
-├── documentation.html      # Full documentation page (loaded in iframe)
-├── embed.html              # Standalone embeddable version
-├── embed-code.html         # Embed code generator page
-├── embed_backup.html       # Backup of embed version
+├── index.html                  # Main tool shell and markup
+├── embed.html                  # Standalone downloadable copy (linked from embed modal)
+├── manifest.webmanifest        # PWA manifest
+├── documentation.html          # English user guide
+├── documentation-fr.html       # French user guide
+├── documentation-de.html       # German user guide
+├── documentation-es.html       # Spanish user guide
+├── documentation-it.html       # Italian user guide
+├── documentation-nl.html       # Dutch user guide
+├── documentation-pt.html       # Portuguese user guide
 ├── css/
-│   ├── poli-standard.css   # Standard Poli stylesheet
-│   └── style.css           # Tool-specific styles
-└── js/
-    ├── converter.js        # Core conversion logic
-    ├── feedback.js         # Feedback form handler
-    └── common.js           # Shared utilities (theme, modal, email form)
+│   └── style.css               # Tool styles
+├── js/
+│   ├── i18n.js                 # Synchronous translation dictionary
+│   ├── converter.js            # Conversion + table rendering logic
+│   └── feedback.js             # Feedback form submission handler
+└── images/
+    └── Poli-International-Co.webp
 ```
+
+Shared assets loaded from outside the tool folder: `/js/input-guards.js`, `/tools/shared/print.css`, `/tools/shared/a11y.css`.
 
 ### Component Breakdown
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| Tool Interface | `index.html` | Main UI with three tabs (Tool, Documentation, Embed) |
-| Input Section | `index.html` | Gauge dropdown, mm input, inches input |
-| Visual Display | `index.html` | SVG circle showing life-size diameter |
-| Reference Tables | `index.html` | Two-column table with piercing types and sizes |
-| Embed Version | `embed.html` | Lightweight version for iframe embedding |
-| Core Logic | `js/converter.js` | Conversion functions and event handlers |
-| Theme Manager | `js/common.js` | Dark/light mode toggle and persistence |
-| Feedback Handler | `js/feedback.js` | Email submission via Web3Forms API |
+The `index.html` page is organized into these functional regions:
 
-### Data Flow
-
-```
-User Input (select/input)
-    ↓
-Event Listener (change/input/keyup)
-    ↓
-Debounce Timer (300ms for numeric inputs)
-    ↓
-Conversion Functions
-    ↓
-DOM Updates:
-    - SVG circle radius
-    - Measurement display
-    - Other input fields
-```
+1. **Breadcrumb navigation** (`nav.breadcrumb-nav`) linking Home, Tools, Piercing Tools, and the current page.
+2. **Site header** (`header.site-header`) with logo and top-level nav links.
+3. **Tool title section** (`section.tool-title-section`) with the H1, a GitHub CTA, and the subtitle.
+4. **Main converter container** (`div.gauge-converter`) containing:
+   - **Header bar** with language selector (`#language-selector`), Free Embed button (`#embed-button`), and dark mode toggle (`#dark-mode-toggle`).
+   - **Embed modal** (`#embed-modal`) with copyable iframe snippet (`#embed-code`), copy button (`#copy-embed-code`), and download links.
+   - **Calibration modal** (`#calibration-modal`) with card guide (`#calibration-card-guide`), range slider (`#card-slider`, min 200, max 500, step 1), pixel readout (`#slider-px-val`), and save/cancel buttons.
+   - **Input section** with three inputs: gauge `<select>` (`#gauge-input`), millimetres number input (`#mm-input`), inches number input (`#inch-input`), plus an error region (`#error-message`).
+   - **Visual display section** with an SVG circle (`#gauge-circle`), a background dashed reference circle, calibration status badge (`#calibration-status-badge`), calibrate button (`#open-calibrate-modal`), and reset button (`#reset-calibration-btn`). Four measurement readouts: `#display-gauge`, `#display-mm`, `#display-inches`, `#display-fraction`.
+   - **Caliper reverse lookup section** with input (`#caliper-input`), calculate button (`#caliper-calc-btn`), error region (`#caliper-error`), and result card (`#caliper-result-card`, `#caliper-result-text`).
+   - **Honest reference table** (`#honest-table-body`) rendered dynamically by `converter.js`, with a click-to-load hint.
+   - **Printable chart section** with print trigger (`#trigger-print-btn`).
+   - **Related tools grid**, **GEO semantic block**, **more tools nav**, and a **community feedback form** (`#feedbackForm`).
 
 ---
 
 ## Data Schemas
 
-### Gauge-to-Millimeter Mapping
+### Gauge Dictionary (rendered into `#gauge-input` and `#honest-table-body`)
 
-Defined in `js/converter.js` as constant `GAUGE_TO_MM`:
+The gauge `<select>` is populated dynamically from a JS dictionary, and the reference table is rendered by `converter.js`. The table columns (from the `<thead>` `data-i18n` keys) define the row schema:
 
-```javascript
-const GAUGE_TO_MM = {
-    '00G': 10.0,
-    '0G':  8.0,
-    '1G':  7.0,
-    '2G':  6.0,
-    '4G':  5.0,
-    '6G':  4.0,
-    '8G':  3.2,
-    '10G': 2.4,
-    '12G': 2.0,
-    '14G': 1.6,
-    '16G': 1.2,
-    '18G': 1.0,
-    '20G': 0.8,
-    '22G': 0.6
-};
-```
+| Field (i18n key) | Meaning | Example |
+|---|---|---|
+| `table.col_gauge` | Gauge / Size label | `16G` |
+| `table.col_awg_exact` | Derived AWG exact value | `1.291 mm` |
+| `table.col_industry_mm` | Industry millimetre value | `1.2 mm` |
+| `table.col_inch` | Approximate inches | `0.047 in` |
+| `table.col_fraction` | Nearest common fraction | `3/64` |
+| `table.col_placements` | Typical starting placements | Helix, Tragus, Conch |
 
-### Reverse Mapping (Computed)
+Rows with dual millimetre values (documented for 10G, 2G, and 00G) list both manufacturer standards, since the piece's own specification wins.
 
-```javascript
-const MM_TO_GAUGE = Object.entries(GAUGE_TO_MM).reduce((acc, [gauge, mm]) => {
-    acc[mm] = gauge;
-    return acc;
-}, {});
-// Example: { 10.0: '00G', 8.0: '0G', 1.2: '16G', ... }
-```
+### Feedback Payload (`js/feedback.js`)
 
-### Conversion Constants
+The feedback form builds this object and POSTs it as JSON:
 
-```javascript
-const MM_PER_INCH = 25.4;
-const PIXELS_PER_MM = 3.78;
-const MAX_CIRCLE_RADIUS = 140;
-const DEBOUNCE_DELAY = 300;
-```
-
-### Measurement Display Object
-
-Used by `updateMeasurementDisplay()`:
-
-```javascript
+```js
 {
-    gauge: '16G',          // String or null
-    mm: '1.2',             // String (formatted) or null
-    inches: '0.047'        // String (formatted) or null
+  email:     document.getElementById('userEmail').value,
+  role:      document.getElementById('userRole').value,
+  feedback:  document.getElementById('feedbackText').value,
+  toolName:  document.title,
+  toolUrl:   window.location.href,
+  timestamp: new Date().toString()
 }
 ```
+
+`role` is one of: `piercer`, `apprentice`, `shop_owner`, `tattoo_artist`, `enthusiast`, `other`.
+
+### localStorage Keys
+
+The documentation states that screen calibration data and the dark mode selection are stored in `localStorage` under separate keys. Clearing browser storage resets calibration to the 96 DPI fallback.
 
 ---
 
 ## Calculation / Logic Algorithms
 
-### Function: `gaugeToMM(gauge)`
+### Unit Conversion
 
-**Purpose**: Convert gauge string to millimeters.
+The converter links three representations of the same physical thickness:
 
-**Algorithm**:
-1. Check if gauge is null or empty string → return `null`
-2. Look up gauge in `GAUGE_TO_MM` object
-3. Return the millimeter value or `null` if not found
+- **Gauge to mm:** gauge values map to rounded industry millimetre values (for example 16G = 1.2 mm, 18G = 1.0 mm, 20G = 0.8 mm, 12G = 2.0 mm), derived from American Wire Gauge (AWG) and rounded for industry use.
+- **mm to inches:** `inches = mm / 25.4`. The inches input has `step="0.001"`, `min="0"`, `max="2"`.
+- **mm input constraints:** `step="0.1"`, `min="0"`, `max="50"`.
+- **Fractional output:** the decimal inch value is matched to the nearest common fraction for display in `#display-fraction`.
 
-**Example**: `gaugeToMM('16G')` → `1.2`
+Editing any one field recalculates the others. If a typed value matches a standard gauge within tolerance, that gauge is highlighted in the select and table; otherwise the value is labelled `Custom` (localized).
 
-### Function: `mmToInches(mm)`
+### Screen Calibration
 
-**Purpose**: Convert millimeters to inches.
+1. User opens the calibration modal via `#open-calibrate-modal`.
+2. A standard ISO/IEC 7810 ID-1 card (85.60 mm wide) is held against the on-screen guide box.
+3. The `#card-slider` (range 200 to 500, step 1) adjusts the guide width in pixels; the live value is shown in `#slider-px-val` (default `323px`).
+4. On save, the tool derives the real pixels-per-millimetre ratio for the display and updates the status badge from `96 DPI Fallback` to the calibrated scale.
+5. `#reset-calibration-btn` restores the 96 DPI default.
 
-**Algorithm**:
-1. Check if mm is null/undefined/empty → return `null`
-2. Parse mm to float; if NaN or negative → return `null`
-3. Divide by `MM_PER_INCH` (25.4)
-4. Round to 3 decimal places
+### True-Scale Circle Rendering
 
-**Formula**: `inches = mm / 25.4`
+The SVG uses `viewBox="0 0 300 300"` with the active circle at `cx="150" cy="150"`. The circle radius (`r`) is set from the selected diameter so that, after calibration, the rendered circle matches the physical diameter. A dashed background circle (`r="140"`) provides a reference frame. If a large stretched size exceeds the preview frame, the graphic is scaled down proportionally with an explanatory note.
 
-**Example**: `mmToInches(1.2)` → `0.047`
+### Reverse Caliper Lookup
 
-### Function: `inchesToMM(inches)`
+1. User enters a measured thickness in `#caliper-input` (`step="0.01"`, `min="0.1"`, `max="50"`, placeholder `e.g. 1.25`).
+2. Clicking `#caliper-calc-btn` finds the nearest standard gauge.
+3. The result card (`#caliper-result-card`) reports the closest gauge, whether the measured piece is larger or smaller than standard, and the variance to the hundredth of a millimetre.
+4. Invalid input surfaces in `#caliper-error`.
 
-**Purpose**: Convert inches to millimeters.
+### Print Calibration
 
-**Algorithm**:
-1. Check if inches is null/undefined/empty → return `null`
-2. Parse to float; if NaN or negative → return `null`
-3. Multiply by `MM_PER_INCH` (25.4)
-4. Round to 1 decimal place
-
-**Formula**: `mm = inches * 25.4`
-
-**Example**: `inchesToMM(0.047)` → `1.2`
-
-### Function: `mmToClosestGauge(mm)`
-
-**Purpose**: Find the closest standard gauge for a given millimeter value.
-
-**Algorithm**:
-1. Check if mm is null/undefined/empty → return `null`
-2. Parse to float; if NaN or negative → return `null`
-3. If exact match exists in `MM_TO_GAUGE` → return that gauge
-4. Otherwise, iterate all gauges, calculate absolute difference
-5. Return gauge with smallest difference
-
-**Example**: `mmToClosestGauge(1.5)` → `14G` (closest to 1.6mm)
-
-### Function: `inchesToClosestGauge(inches)`
-
-**Purpose**: Convert inches to closest gauge via millimeter intermediate.
-
-**Algorithm**:
-1. Convert inches to mm using `inchesToMM()`
-2. Pass result to `mmToClosestGauge()`
-
-### Function: `updateCircleDisplay(mm)`
-
-**Purpose**: Update the SVG circle to show life-size diameter.
-
-**Algorithm**:
-1. Get SVG circle element by ID `gauge-circle`
-2. If mm is null/undefined/empty → set radius to 0
-3. Parse mm to float; if NaN or ≤ 0 → set radius to 0
-4. Calculate radius in pixels: `(mm / 2) * PIXELS_PER_MM`
-5. Cap at `MAX_CIRCLE_RADIUS` (140px)
-6. Set SVG `r` attribute
-
-### Function: `validateNumericInput(value, min, max)`
-
-**Purpose**: Validate numeric input within range.
-
-**Algorithm**:
-1. If value is empty/null/undefined → return `true` (allow empty)
-2. Parse to float; if NaN → return `false`
-3. If value < min or > max → return `false`
-4. Otherwise → return `true`
-
-**Default parameters**: `min=0, max=Infinity`
-
-### Debounce Logic
-
-Numeric inputs (mm and inches) use a 300ms debounce timer:
-
-```javascript
-let debounceTimer = null;
-
-function handleMMChange() {
-    if (debounceTimer) {
-        clearTimeout(debounceTimer);
-    }
-    debounceTimer = setTimeout(() => {
-        // ... conversion logic ...
-    }, DEBOUNCE_DELAY);
-}
-```
+The print button (`#trigger-print-btn`) triggers a one-page wall chart. The instruction note requires printing at 100% scale (no fit-to-page) on A4 or US Letter, then verifying the printed 50 mm calibration bar with a ruler.
 
 ---
 
 ## API Reference
 
-### Public Functions
+### `js/feedback.js`
 
-| Function | Parameters | Returns | Description |
-|----------|------------|---------|-------------|
-| `gaugeToMM(gauge)` | `gauge`: String (e.g., '16G') | Number or null | Converts gauge to millimeters |
-| `mmToInches(mm)` | `mm`: Number | Number (3 decimals) or null | Converts mm to inches |
-| `inchesToMM(inches)` | `inches`: Number | Number (1 decimal) or null | Converts inches to mm |
-| `mmToClosestGauge(mm)` | `mm`: Number | String or null | Finds closest standard gauge |
-| `inchesToClosestGauge(inches)` | `inches`: Number | String or null | Converts inches to closest gauge |
-| `updateCircleDisplay(mm)` | `mm`: Number or null | void | Updates SVG circle radius |
-| `updateMeasurementDisplay(values)` | `values`: Object `{gauge, mm, inches}` | void | Updates measurement display |
-| `showError(message)` | `message`: String | void | Shows error message (auto-hides after 5s) |
-| `hideError()` | none | void | Hides error message |
-| `clearAllInputs()` | none | void | Resets all inputs and displays |
-| `validateNumericInput(value, min, max)` | `value`: String/Number, `min`: Number, `max`: Number | Boolean | Validates numeric range |
+**`DOMContentLoaded` handler**
+- Looks up `#feedbackForm`, `#feedbackSuccess`, `#feedbackError`.
+- Attaches a `submit` listener to the form.
 
-### Event Handlers
+**Form submit handler (`async function(e)`)**
+- Calls `e.preventDefault()`.
+- Builds the `formData` object (see [Data Schemas](#data-schemas)).
+- Hides success/error messages, disables the submit button, and swaps its label to the localized `feedback.sending` string (fallback `Sending...`).
+- `POST`s JSON to `/api/feedback` with headers `Content-Type: application/json` and `Accept: application/json`.
+- On `result.success === true`: shows `#feedbackSuccess`, resets the form, smooth-scrolls the message into view, and auto-hides it after 10000 ms.
+- On failure or thrown error: logs to console and shows `#feedbackError`, scrolled into view.
+- `finally`: re-enables the submit button and restores its original innerHTML.
 
-| Handler | Trigger | Description |
-|---------|---------|-------------|
-| `handleGaugeChange()` | `change` event on gauge select | Converts gauge to mm/inches, updates display |
-| `handleMMChange()` | `input`/`keyup` on mm input (debounced 300ms) | Converts mm to gauge/inches, updates display |
-| `handleInchesChange()` | `input`/`keyup` on inches input (debounced 300ms) | Converts inches to gauge/mm, updates display |
+### `js/i18n.js`
 
-### Initialization
+Provides a synchronous translation dictionary loaded before render. Exposes `window.i18n.t(key)` used by `feedback.js` for the `feedback.sending` string. The language selector (`#language-selector`) offers en, fr, it, de, es, nl, pt.
 
-```javascript
-function initConverter()
-```
+### `converter.js` (referenced)
 
-Called on `DOMContentLoaded`. Attaches event listeners to all three inputs and initializes display to empty state.
+Responsible for rendering `#honest-table-body` and driving the conversion, calibration, circle, and caliper logic described above. The source for this file was not included in the provided excerpt, so its internal function names are not documented here.
+
+### DOM Handlers and IDs (public surface)
+
+| Element ID | Role |
+|---|---|
+| `#language-selector` | Language switch (en/fr/it/de/es/nl/pt) |
+| `#embed-button` / `#embed-modal` / `#modal-close` | Embed modal open/close |
+| `#embed-code` / `#copy-embed-code` / `#copy-success` | Copy iframe snippet |
+| `#dark-mode-toggle` | Toggle dark/light mode |
+| `#open-calibrate-modal` / `#close-calibrate-modal` / `#save-calibrate-btn` / `#cancel-calibrate-btn` | Calibration modal controls |
+| `#card-slider` / `#slider-px-val` | Calibration slider and readout |
+| `#reset-calibration-btn` | Reset to 96 DPI |
+| `#gauge-input` / `#mm-input` / `#inch-input` | Conversion inputs |
+| `#error-message` | Conversion error region |
+| `#gauge-circle` | Active SVG circle |
+| `#display-gauge` / `#display-mm` / `#display-inches` / `#display-fraction` | Measurement readouts |
+| `#caliper-input` / `#caliper-calc-btn` / `#caliper-error` / `#caliper-result-card` / `#caliper-result-text` | Reverse lookup |
+| `#honest-table-body` | Dynamically rendered reference table |
+| `#trigger-print-btn` | Print wall chart |
+| `#feedbackForm` | Community feedback form |
 
 ---
 
 ## Integration Guide
 
-### Standalone Embedding
+### Standalone Embedding via iframe
 
-The tool is dependency-free static HTML/CSS/JS and can be embedded via iframe:
+The embed modal exposes a responsive iframe snippet:
 
 ```html
-<iframe
-  src="https://poliinternational.com/tools/gauge-converter/embed.html"
-  width="100%"
-  height="600"
-  frameborder="0"
-  style="border: 1px solid #ddd; border-radius: 8px;"
-  title="Professional Gauge Converter by Poli International">
-</iframe>
+<iframe src="https://poliinternational.com/tools/gauge-converter/index.html" width="100%" height="800" frameborder="0"></iframe>
 ```
 
-### Embed Options
+Clicking `#copy-embed-code` copies this snippet to the clipboard (confirmation shown in `#copy-success`). The modal also offers a **Download HTML File** link to `embed.html` for a self-contained offline copy, and a link to the full tools directory.
 
-| Version | Dimensions | Features |
-|---------|------------|----------|
-| Compact | 320×500px | Inputs and measurements only |
-| Standard (Recommended) | 100%×600px | Full-width with visual display |
-| Large | 100%×800px | Maximum visibility |
+### Dependency-Free Static Hosting
 
-### Theme Integration
+The tool is static HTML/CSS/JS with no build step and no external runtime dependencies. It can be hosted on any static file server. The only server-side endpoint referenced is `/api/feedback` for the optional feedback form; the converter, calibration, and caliper features run entirely client-side.
 
-The embed version supports theme control via postMessage:
+### Offline Use
 
-```javascript
-// Send theme from parent to iframe
-iframe.contentWindow.postMessage({
-    type: 'poli-theme',
-    light: true  // or false for dark mode
-}, '*');
-```
-
-### No Dependencies
-
-The tool requires:
-- No external CSS frameworks
-- No JavaScript libraries
-- No API keys
-- No server-side processing
-- No cookies or tracking
+The downloaded `embed.html` contains the full application code and operates without an internet connection, per the documentation.
 
 ---
 
 ## Customization
 
-### CSS Variables
-
-The tool uses CSS custom properties for easy theming:
-
-```css
-:root {
-    --color-primary: #0066CC;
-    --color-primary-dark: #004C99;
-    --color-primary-light: #3385D6;
-    --color-text-primary: #333;
-    --color-text-secondary: #666;
-    --color-background: #F5F5F5;
-    --color-background-white: #FFF;
-    --color-border: #DDD;
-    --color-error: #DC3545;
-    --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-family-mono: "SF Mono", Monaco, "Cascadia Code", monospace;
-    --border-radius: 8px;
-    --transition-speed: 0.3s;
-}
-```
-
-### Dark Mode
-
-Dark mode is toggled by adding class `dark-mode` to `<body>`. The embed version persists preference in `localStorage` under key `embed-theme`.
-
-### Gauge Data
-
-To customize available gauge sizes, modify the `GAUGE_TO_MM` object in `js/converter.js`. The select dropdown options in `index.html` and `embed.html` must be updated to match.
+- **Language:** switch among en, fr, it, de, es, nl, pt via `#language-selector`. All visible strings are keyed through `data-i18n` attributes, so translations are driven by `js/i18n.js`.
+- **Theme:** `#dark-mode-toggle` switches dark/light mode; the choice persists in `localStorage`.
+- **Calibration:** the `#card-slider` range is fixed at min 200, max 500, step 1 in the markup, and the default pixel readout is `323px`.
+- **Styling:** visual changes are made in `css/style.css`; print output is governed by `tools/shared/print.css`; accessibility styles by `tools/shared/a11y.css`.
 
 ---
 
 ## Performance
 
-- **Total Size**: Under 50KB (HTML, CSS, JS combined)
-- **Load Time**: Under 2 seconds on standard connections
-- **No External Requests**: Zero network dependencies
-- **Debounced Input**: 300ms debounce prevents excessive calculations during typing
-- **Efficient DOM Updates**: Only affected elements are updated
-- **CSS Animations**: Respects `prefers-reduced-motion`
+- Fully client-side; no network round-trips for conversions, calibration, or caliper lookup.
+- `js/i18n.js` is loaded synchronously in the head as a pre-render dictionary, so strings are available before the UI paints.
+- The reference table is rendered dynamically into `#honest-table-body` rather than hard-coded in markup.
+- The SVG uses a fixed `viewBox` (300x300), so scaling does not require re-layout.
 
 ---
 
 ## Browser Compatibility
 
-| Browser | Minimum Version |
-|---------|----------------|
-| Chrome | 90+ |
-| Firefox | 88+ |
-| Safari | 14+ |
-| Edge | 90+ |
-| iOS Safari | 14+ |
-| Android Chrome | 90+ |
-
-### Features Used
-
-- CSS Grid (`grid-template-columns`)
-- CSS Custom Properties (`var()`)
-- ES6 Arrow Functions
-- `Array.reduce()`, `Object.entries()`
-- `fetch()` API (feedback form only)
-- `localStorage` API
-- `MutationObserver`
-- `postMessage` API
+- Declared as `operatingSystem: Any` with `browserRequirements: Requires JavaScript. Requires HTML5.`
+- Uses standard HTML5 inputs (`type="number"`, `type="range"`, `<select>`, `<textarea>`), SVG, `localStorage`, `fetch`, and `navigator`-free logic.
+- The feedback handler uses `async/await` and `fetch`, requiring a modern browser.
+- A `manifest.webmanifest` is linked for installability.
 
 ---
 
 ## Security
 
-### Input Handling
-
-- **Numeric Validation**: All numeric inputs are validated with `validateNumericInput()` to ensure values are within acceptable ranges (mm: 0-20, inches: 0-1)
-- **Type Checking**: All conversion functions check for null/undefined/empty values before processing
-- **NaN Protection**: `parseFloat()` results are checked with `isNaN()` before use
-
-### XSS Prevention
-
-- No `innerHTML` is used for user-supplied values
-- All dynamic content is set via `textContent` property
-- Select dropdown values are constrained to predefined options
-- No user input is evaluated as code
-
-### Embed Security
-
-- iframe uses no special permissions (no `allow` attributes)
-- No cross-origin data sharing
-- No cookies or tracking mechanisms
-- Works on both HTTP and HTTPS
+- **Input handling:** numeric inputs are constrained by `type="number"`, `min`, `max`, and `step` attributes (mm: 0 to 50; inches: 0 to 2; caliper: 0.1 to 50). A shared `/js/input-guards.js` is loaded in the head.
+- **XSS surface:** the feedback handler reads values via `.value` and sends them as a JSON body; it does not inject user input into the DOM as HTML. The submit button label is restored from a captured `innerHTML` string rather than from user input.
+- **Data locality:** all conversions, calibration values, and display preferences are processed in the browser. Calibration and theme are stored in `localStorage`. No measurement input, device information, or personal data is transmitted to external servers, except the feedback form which POSTs to the same-origin `/api/feedback` endpoint.
+- **Embedded copy:** the downloadable `embed.html` runs fully offline.
 
 ---
 
 ## Version History
 
-### Version 1.0.0 (Current)
-
-- Initial release of Professional Gauge Converter
-- 14 standard gauge sizes (00G to 22G)
-- Bidirectional conversion (gauge ↔ mm ↔ inches)
-- SVG visual circle display
-- Reference tables with 30+ piercing types
-- Dark/light mode support
-- Embeddable iframe version
-- Email notification signup
-- Feedback form integration
-- WCAG 2.1 AA accessibility compliance
+### 1.0.0
+- Initial release of the Professional Gauge Converter.
+- Gauge, millimetre, and inch conversion with fractional output.
+- True-scale SVG circle reference with ISO/IEC 7810 ID-1 card calibration and 96 DPI fallback.
+- Reverse caliper lookup with variance reporting.
+- Honest reference table with dual millimetre values for 10G, 2G, and 00G.
+- Printable one-page wall chart with 50 mm verification bar.
+- Seven-language interface (en, fr, it, de, es, nl, pt).
+- Free iframe embed and downloadable standalone HTML.
+- Community feedback form.
 
 ---
 
-## Support and Contact
+## Support / Contact
 
-For technical support, integration assistance, or bug reports:
+For questions, bug reports, or feedback about the Professional Gauge Converter, contact **support@poliinternational.com**.
 
-- **Email**: support@poliinternational.com
-- **Website**: https://poliinternational.com
-- **Contact Form**: https://poliinternational.com/contact-us/
-
-### Feedback
-
-The tool includes a built-in feedback form (in `js/feedback.js`) that submits to:
-
-- **API**: Web3Forms (https://api.web3forms.com/submit)
-- **Recipient**: patrick@poli-international.com
-- **Access Key**: `ebd0e138-c7aa-4290-b028-74d1c3fa8faa`
-
----
-
-*Documentation generated from source code version 1.0.0*
+You can also use the in-page Community Feedback form, which posts to `/api/feedback` and includes your email, role, message, tool name, tool URL, and timestamp.
